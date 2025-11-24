@@ -16,7 +16,8 @@ function ControlPanel({ onLoad, loading }) {
     { value: 'glove', label: 'GloVe' },
     { value: 'fasttext', label: 'FastText' },
     { value: 'bert', label: 'BERT' },
-    { value: 'elmo', label: 'ELMo' }
+    { value: 'elmo', label: 'ELMo' },
+    { value: 'minilm', label: 'MiniLM' }
   ];
 
   const clusteringOptions = [
@@ -95,13 +96,10 @@ function ControlPanel({ onLoad, loading }) {
 function Visualization3D({ data, onPointClick, selectedPoint }) {
   const mountRef = useRef(null);
   const [hoveredId, setHoveredId] = useState(null);
-  const hoveredIndexRef = useRef(null);
-  const selectedIndexRef = useRef(null);
   const selectedPointRef = useRef(selectedPoint);
   const onPointClickRef = useRef(onPointClick);
   const sceneInitializedRef = useRef(false);
   
-  // Update refs when props change (without triggering scene recreation)
   useEffect(() => {
     selectedPointRef.current = selectedPoint;
     onPointClickRef.current = onPointClick;
@@ -109,11 +107,20 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
 
   useEffect(() => {
     if (!mountRef.current || !data) return;
+    let dataKey;
+    if (Array.isArray(data)) {
+      dataKey = `array_${data.length}_${data[0]?.id || ''}_${data[data.length - 1]?.id || ''}`;
+    } else {
+      const keys = Object.keys(data);
+      dataKey = `object_${keys.length}_${keys.slice(0, 3).join('_')}`;
+    }
     
-    // If scene already exists for this data, don't recreate it
-    const dataKey = JSON.stringify(Object.keys(data).slice(0, 10)); // Use first 10 keys as identifier
     if (sceneInitializedRef.current === dataKey) {
       return;
+    }
+    
+    if (mountRef.current && mountRef.current.firstChild) {
+      mountRef.current.removeChild(mountRef.current.firstChild);
     }
     
     sceneInitializedRef.current = dataKey;
@@ -121,27 +128,22 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     const width = mountRef.current.clientWidth;
     const height = mountRef.current.clientHeight;
 
-    // Scene setup
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x0a0a0a);
 
-    // Camera setup
     const camera = new THREE.PerspectiveCamera(75, width / height, 0.1, 1000);
-    camera.position.z = 4;
+    camera.position.set(0, 0, 6);
 
-    // Renderer setup
     const renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setSize(width, height);
     renderer.setPixelRatio(window.devicePixelRatio);
     mountRef.current.appendChild(renderer.domElement);
 
-    // Controls - using the global OrbitControls from CDN
     const controls = new window.OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.autoRotate = false;
     
-    // Disable double-click to reset (if it exists)
     if (controls.addEventListener) {
       renderer.domElement.addEventListener('dblclick', (e) => {
         e.preventDefault();
@@ -149,39 +151,122 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
       });
     }
 
-    // Raycaster for hover detection
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points.threshold = 0.1;
     const mouse = new THREE.Vector2();
     
-    // Track mouse drag to prevent accidental clicks while rotating/panning
     let isDragging = false;
     let mouseDownPosition = { x: 0, y: 0 };
-    const DRAG_THRESHOLD = 5; // pixels
+    const DRAG_THRESHOLD = 5;
 
-    // Convert data to positions and colors arrays
-    const dataEntries = Object.entries(data);
+    let dataEntries;
+    let dataMap = new Map();
+    
+    if (Array.isArray(data)) {
+      dataEntries = data.map(item => {
+        const id = String(item.id);
+        dataMap.set(id, item);
+        return [id, item];
+      });
+    } else {
+      dataEntries = Object.entries(data).map(([id, item]) => {
+        const idStr = String(id);
+        dataMap.set(idStr, item);
+        return [idStr, item];
+      });
+    }
+    
     const count = dataEntries.length;
     const positions = new Float32Array(count * 3);
     const colors = new Float32Array(count * 3);
     const ids = [];
     const clusters = [];
 
-    // ASU colors for clusters
     const clusterColors = [
-      new THREE.Color(0x8C1D40), // ASU Maroon
-      new THREE.Color(0xFFC627), // ASU Gold
-      new THREE.Color(0xB8860B), // Dark Goldenrod
-      new THREE.Color(0xCD5C5C), // Indian Red
+      new THREE.Color(0x8C1D40),
+      new THREE.Color(0xFFC627),
+      new THREE.Color(0xB8860B),
+      new THREE.Color(0xCD5C5C),
+      new THREE.Color(0x9370DB),
+      new THREE.Color(0x20B2AA),
     ];
+    const rawPoints = [];
+    dataEntries.forEach(([id, item]) => {
+      let point;
+      if (item.coordinates) {
+        point = item.coordinates;
+      } else if (item.point) {
+        point = item.point;
+      } else if (Array.isArray(item)) {
+        point = item;
+      } else {
+        point = [0, 0, 0];
+      }
+      if (Array.isArray(point) && point.length >= 3 && 
+          typeof point[0] === 'number' && typeof point[1] === 'number' && typeof point[2] === 'number') {
+        rawPoints.push(point);
+      } else {
+        console.warn('Invalid point data for id:', id, 'point:', point);
+        rawPoints.push([0, 0, 0]);
+      }
+    });
 
+    if (rawPoints.length === 0) {
+      console.error('No valid points found in data!');
+      return;
+    }
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+    let minZ = Infinity, maxZ = -Infinity;
+    
+    rawPoints.forEach(point => {
+      if (point && point.length >= 3) {
+        minX = Math.min(minX, point[0]);
+        maxX = Math.max(maxX, point[0]);
+        minY = Math.min(minY, point[1]);
+        maxY = Math.max(maxY, point[1]);
+        minZ = Math.min(minZ, point[2]);
+        maxZ = Math.max(maxZ, point[2]);
+      }
+    });
+    
+    // Ensure we have valid bounds
+    if (!isFinite(minX) || !isFinite(maxX)) {
+      console.error('Invalid bounding box calculated!', { minX, maxX, minY, maxY, minZ, maxZ });
+      return;
+    }
+
+    // Calculate center and scale
+    const centerX = (minX + maxX) / 2;
+    const centerY = (minY + maxY) / 2;
+    const centerZ = (minZ + maxZ) / 2;
+    
+    const rangeX = maxX - minX;
+    const rangeY = maxY - minY;
+    const rangeZ = maxZ - minZ;
+    const maxRange = Math.max(rangeX, rangeY, rangeZ, 1);
+    
+    const scale = 4 / maxRange;
+    
     dataEntries.forEach(([id, item], index) => {
-      const point = Array.isArray(item) ? item : item.point;
-      const cluster = Array.isArray(item) ? 0 : (item.cluster || 0);
+      let point, cluster;
       
-      positions[index * 3 + 0] = point[0];
-      positions[index * 3 + 1] = point[1];
-      positions[index * 3 + 2] = point[2];
+      if (item.coordinates) {
+        point = item.coordinates;
+        cluster = item.cluster || 0;
+      } else if (item.point) {
+        point = item.point;
+        cluster = item.cluster || 0;
+      } else if (Array.isArray(item)) {
+        point = item;
+        cluster = 0;
+      } else {
+        point = [0, 0, 0];
+        cluster = 0;
+      }
+      positions[index * 3 + 0] = (point[0] - centerX) * scale;
+      positions[index * 3 + 1] = (point[1] - centerY) * scale;
+      positions[index * 3 + 2] = (point[2] - centerZ) * scale;
       
       const color = clusterColors[cluster % clusterColors.length];
       colors[index * 3 + 0] = color.r;
@@ -192,15 +277,16 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
       clusters.push(cluster);
     });
 
-    // Create geometry and material
     const geometry = new THREE.BufferGeometry();
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
     geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
     geometry.userData.ids = ids;
     geometry.userData.clusters = clusters;
 
+    const pointSize = Math.max(0.02, Math.min(0.1, 0.05 * (4 / Math.max(maxRange, 1))));
+    
     const material = new THREE.PointsMaterial({
-      size: 0.03,
+      size: pointSize,
       sizeAttenuation: true,
       transparent: true,
       opacity: 0.8,
@@ -209,8 +295,18 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
 
     const points = new THREE.Points(geometry, material);
     scene.add(points);
+    
+    const colorsRef = { current: colors };
+    const clustersRef = { current: clusters };
+    const scaleRef = { current: scale };
+    const centerRef = { current: { x: centerX, y: centerY, z: centerZ } };
+    const clusterColorsRef = { current: clusterColors };
 
-    // Create highlight sphere for hovered/selected points
+    camera.position.set(0, 0, 6);
+    camera.lookAt(0, 0, 0);
+    controls.target.set(0, 0, 0);
+    controls.update();
+
     const highlightGeometry = new THREE.SphereGeometry(0.08, 16, 16);
     const highlightMaterial = new THREE.MeshBasicMaterial({
       color: 0xFFFFFF,
@@ -220,8 +316,6 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     const highlightSphere = new THREE.Mesh(highlightGeometry, highlightMaterial);
     highlightSphere.visible = false;
     scene.add(highlightSphere);
-
-    // Create selected point highlight (different color)
     const selectedGeometry = new THREE.SphereGeometry(0.1, 16, 16);
     const selectedMaterial = new THREE.MeshBasicMaterial({
       color: 0xFFC627,
@@ -232,16 +326,13 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     selectedSphere.visible = false;
     scene.add(selectedSphere);
 
-    // Mouse down handler to track drag start
     const handleMouseDown = (event) => {
       mouseDownPosition.x = event.clientX;
       mouseDownPosition.y = event.clientY;
       isDragging = false;
     };
 
-    // Mouse move handler for hover and drag detection
     const handleMouseMove = (event) => {
-      // Detect dragging
       if (mouseDownPosition.x !== 0 || mouseDownPosition.y !== 0) {
         const dx = Math.abs(event.clientX - mouseDownPosition.x);
         const dy = Math.abs(event.clientY - mouseDownPosition.y);
@@ -249,8 +340,6 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
           isDragging = true;
         }
       }
-
-      // Hover detection (only if not dragging)
       if (!isDragging) {
         const rect = renderer.domElement.getBoundingClientRect();
         mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
@@ -266,71 +355,95 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
           const id = storedIds[index];
           const cluster = storedClusters[index];
           setHoveredId({ id, cluster });
-          hoveredIndexRef.current = index;
           
-          // Show highlight sphere at hovered point
-          const item = data[id];
-          const point = Array.isArray(item) ? item : item.point;
-          highlightSphere.position.set(point[0], point[1], point[2]);
-          highlightSphere.visible = true;
+          const item = dataMap.get(String(id));
+          let point;
+          if (item) {
+            if (item.coordinates) {
+              point = item.coordinates;
+            } else if (item.point) {
+              point = item.point;
+            } else if (Array.isArray(item)) {
+              point = item;
+            }
+          }
+          if (point) {
+            highlightSphere.position.set(point[0], point[1], point[2]);
+            highlightSphere.visible = true;
+          }
           
-          // Change cursor to pointer
           renderer.domElement.style.cursor = 'pointer';
         } else {
           setHoveredId(null);
-          hoveredIndexRef.current = null;
           highlightSphere.visible = false;
           renderer.domElement.style.cursor = 'default';
         }
       } else {
-        // Hide hover highlight while dragging
         highlightSphere.visible = false;
         renderer.domElement.style.cursor = 'default';
       }
     };
 
-    // Mouse up handler to detect click (not drag)
     const handleMouseUp = (event) => {
-      // Only trigger click if it wasn't a drag
       if (!isDragging && onPointClickRef.current) {
         const rect = renderer.domElement.getBoundingClientRect();
-        mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
-        mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+        const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+        
+        if (x < -1 || x > 1 || y < -1 || y > 1) {
+          return;
+        }
+        
+        mouse.x = x;
+        mouse.y = y;
 
+        controls.update();
+        camera.updateMatrixWorld();
+        
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(points);
-
+        
         if (intersects.length > 0) {
-          // Aggressively prevent OrbitControls from handling this event
+          const intersect = intersects[0];
+          
           event.stopPropagation();
           event.preventDefault();
           event.stopImmediatePropagation();
           
-          // Temporarily disable controls to prevent any interference
           const controlsEnabled = controls.enabled;
           controls.enabled = false;
           
-          // Save current camera state
           const savedPosition = camera.position.clone();
           const savedTarget = controls.target.clone();
           const savedZoom = camera.zoom;
           
-          const index = intersects[0].index;
+          const index = intersect.index;
           const storedIds = geometry.userData.ids;
           const storedClusters = geometry.userData.clusters;
           const id = storedIds[index];
           const cluster = storedClusters[index];
-          const item = data[id];
-          const point = Array.isArray(item) ? item : item.point;
           
-          // Call the click handler
-          onPointClickRef.current({
-            id,
-            cluster,
-            point: [...point]
-          });
+          const item = dataMap.get(String(id));
+          let point;
+          if (item) {
+            if (item.coordinates) {
+              point = item.coordinates;
+            } else if (item.point) {
+              point = item.point;
+            } else if (Array.isArray(item)) {
+              point = item;
+            }
+          }
           
-          // Immediately restore camera state and re-enable controls
+          if (point) {
+            onPointClickRef.current({
+              id,
+              cluster,
+              point: [...point]
+            });
+          }
+          
           camera.position.copy(savedPosition);
           controls.target.copy(savedTarget);
           camera.zoom = savedZoom;
@@ -338,7 +451,6 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
           controls.enabled = controlsEnabled;
           controls.update();
           
-          // Also restore in next frame as a safety measure
           requestAnimationFrame(() => {
             camera.position.copy(savedPosition);
             controls.target.copy(savedTarget);
@@ -349,7 +461,6 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
         }
       }
       
-      // Reset drag tracking
       mouseDownPosition.x = 0;
       mouseDownPosition.y = 0;
       isDragging = false;
@@ -359,29 +470,60 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     renderer.domElement.addEventListener('mousemove', handleMouseMove);
     renderer.domElement.addEventListener('mouseup', handleMouseUp);
 
-    // Animation loop
     const animate = () => {
       requestAnimationFrame(animate);
       controls.update();
       
-      // Update selected point highlight (use ref to get latest value)
       const currentSelectedPoint = selectedPointRef.current;
+      const colorAttribute = points.geometry.attributes.color;
+      const positionAttribute = points.geometry.attributes.position;
+      
       if (currentSelectedPoint && currentSelectedPoint.point) {
-        selectedSphere.position.set(
-          currentSelectedPoint.point[0], 
-          currentSelectedPoint.point[1], 
-          currentSelectedPoint.point[2]
-        );
-        selectedSphere.visible = true;
+        const storedIds = points.geometry.userData.ids;
+        const pointIndex = storedIds.indexOf(String(currentSelectedPoint.id));
+        
+        if (pointIndex !== -1) {
+          const x = positionAttribute.getX(pointIndex);
+          const y = positionAttribute.getY(pointIndex);
+          const z = positionAttribute.getZ(pointIndex);
+          
+          selectedSphere.position.set(x, y, z);
+          selectedSphere.visible = true;
+        } else {
+          const scaledX = (currentSelectedPoint.point[0] - centerRef.current.x) * scaleRef.current;
+          const scaledY = (currentSelectedPoint.point[1] - centerRef.current.y) * scaleRef.current;
+          const scaledZ = (currentSelectedPoint.point[2] - centerRef.current.z) * scaleRef.current;
+          selectedSphere.position.set(scaledX, scaledY, scaledZ);
+          selectedSphere.visible = true;
+        }
+        
+        const selectedCluster = currentSelectedPoint.cluster;
+        const grayColor = new THREE.Color(0x333333);
+        
+        for (let i = 0; i < clustersRef.current.length; i++) {
+          const cluster = clustersRef.current[i];
+          if (cluster !== selectedCluster) {
+            colorAttribute.setXYZ(i, grayColor.r, grayColor.g, grayColor.b);
+          } else {
+            const color = clusterColorsRef.current[cluster % clusterColorsRef.current.length];
+            colorAttribute.setXYZ(i, color.r, color.g, color.b);
+          }
+        }
+        colorAttribute.needsUpdate = true;
       } else {
         selectedSphere.visible = false;
+        
+        for (let i = 0; i < clustersRef.current.length; i++) {
+          const cluster = clustersRef.current[i];
+          const color = clusterColorsRef.current[cluster % clusterColorsRef.current.length];
+          colorAttribute.setXYZ(i, color.r, color.g, color.b);
+        }
+        colorAttribute.needsUpdate = true;
       }
       
       renderer.render(scene, camera);
     };
     animate();
-
-    // Handle window resize
     const handleResize = () => {
       const newWidth = mountRef.current.clientWidth;
       const newHeight = mountRef.current.clientHeight;
@@ -409,9 +551,13 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
       selectedGeometry.dispose();
       selectedMaterial.dispose();
     };
-  }, [data]); // Only recreate scene when data changes, not when callbacks or selectedPoint change
+  }, [data]);
 
-  return e('div', { className: 'visualization-container' },
+  const handleContainerClick = (event) => {
+    event.stopPropagation();
+  };
+
+  return e('div', { className: 'visualization-container', onClick: handleContainerClick },
     e('div', { ref: mountRef, className: 'visualization-canvas' }),
     hoveredId && e('div', { className: 'hover-tooltip' },
       `ID: ${hoveredId.id}`,
@@ -467,16 +613,32 @@ function App() {
     setLoading(true);
     
     try {
-      const filename = `${newParams.visualizationTechnique}_${newParams.embeddingAlgorithm}_${newParams.clusteringAlgorithm}.json`;
-      const response = await fetch(`public/data/${filename}`);
+      let altFilename = `${newParams.visualizationTechnique}_${newParams.clusteringAlgorithm}_k6_${newParams.embeddingAlgorithm}.json`;
+      let response = await fetch(`public/data/${altFilename}`);
       
       if (!response.ok) {
-        throw new Error(`Failed to load data file: ${filename}`);
+        const filename = `${newParams.visualizationTechnique}_${newParams.embeddingAlgorithm}_${newParams.clusteringAlgorithm}.json`;
+        response = await fetch(`public/data/${filename}`);
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load data file. Tried: ${altFilename} and ${filename}`);
+        }
       }
       
       const jsonData = await response.json();
-      setData(jsonData);
-      setSelectedPoint(null); // Clear selection when loading new data
+      let processedData = jsonData;
+      
+      if (!Array.isArray(jsonData) && jsonData.points && Array.isArray(jsonData.points)) {
+        processedData = jsonData.points;
+      } else if (!Array.isArray(jsonData) && typeof jsonData === 'object') {
+        const arrayValues = Object.values(jsonData).filter(v => Array.isArray(v));
+        if (arrayValues.length > 0 && arrayValues[0].length > 0) {
+          processedData = arrayValues[0];
+        }
+      }
+      
+      setData(processedData);
+      setSelectedPoint(null);
     } catch (error) {
       console.error('Error loading data:', error);
       alert(`Failed to load data. Please check that the file exists for the selected combination.`);
@@ -489,13 +651,20 @@ function App() {
     setSelectedPoint(pointData);
   };
 
-  return e('div', { className: 'app' },
+  const handleClickOutside = (event) => {
+    const visualizationContainer = event.target.closest('.visualization-container');
+    if (!visualizationContainer && selectedPoint) {
+      setSelectedPoint(null);
+    }
+  };
+
+  return e('div', { className: 'app', onClick: handleClickOutside },
     e('header', { className: 'app-header' },
       e('h1', null, 'CSE573 - Group 20 - Project 9 - Document Clustering, Summarization & Visualization'),
       e('div', { className: 'header-info' },
-        data && e('span', null,
-          `Points: ${Object.keys(data).length} | Dimension: 3`
-        )
+          data && e('span', null,
+            `Points: ${Array.isArray(data) ? data.length : Object.keys(data).length} | Dimension: 3`
+          )
       )
     ),
     e('div', { className: 'app-content' },
@@ -528,7 +697,6 @@ function initApp() {
   }
 }
 
-// Start initialization
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initApp);
 } else {
