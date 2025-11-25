@@ -35,28 +35,6 @@
       background-color: #0a0a0a;
     }
 
-    .app-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 12px 24px;
-      background-color: #1a1a1a;
-      border-bottom: 1px solid #8C1D40;
-      box-shadow: 0 2px 4px rgba(0, 0, 0, 0.5);
-    }
-
-    .app-header h1 {
-      font-size: 20px;
-      font-weight: 600;
-      color: #FFC627;
-      margin: 0;
-    }
-
-    .header-info {
-      font-size: 14px;
-      color: #cccccc;
-    }
-
     .app-content {
       display: flex;
       flex: 1;
@@ -76,12 +54,118 @@
     }
 
     .panel-section h2 {
+      font-size: 18px;
+      font-weight: 600;
+      color: #ffffff;
+      margin-bottom: 12px;
+      text-transform: none;
+      letter-spacing: 0;
+    }
+
+    .search-input {
+      width: 100%;
+      padding: 10px 12px;
       font-size: 14px;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      background-color: #2a2a2a;
+      color: #f5f5f5;
+      transition: border-color 0.2s;
+    }
+
+    .search-input:focus {
+      outline: none;
+      border-color: #8C1D40;
+    }
+
+    .search-input::placeholder {
+      color: #666666;
+    }
+
+    .point-info-box {
+      background-color: #2a2a2a;
+      border: 1px solid #444444;
+      border-radius: 4px;
+      padding: 16px;
+      margin-top: 8px;
+    }
+
+    .point-info-item {
+      margin-bottom: 12px;
+    }
+
+    .point-info-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .point-info-label {
+      font-size: 13px;
+      color: #cccccc;
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    .point-info-value {
+      font-size: 14px;
+      color: #f5f5f5;
+      word-wrap: break-word;
+    }
+
+    .point-info-description {
+      font-size: 13px;
+      color: #cccccc;
+      line-height: 1.6;
+      word-wrap: break-word;
+    }
+
+    .statistics-box {
+      padding: 8px;
+    }
+
+    .stat-section {
+      margin-top: 6px;
+      margin-bottom: 3px;
+    }
+
+    .stat-section:first-child {
+      margin-top: 0;
+    }
+
+    .stat-section-title {
+      font-size: 10px;
       font-weight: 600;
       color: #FFC627;
-      margin-bottom: 12px;
+      margin-bottom: 3px;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.3px;
+    }
+
+    .stat-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 3px;
+      font-size: 10px;
+    }
+
+    .stat-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .stat-label {
+      color: #cccccc;
+      font-weight: 500;
+      margin-right: 6px;
+      flex-shrink: 0;
+      font-size: 10px;
+    }
+
+    .stat-value {
+      color: #f5f5f5;
+      font-family: monospace;
+      font-size: 9px;
+      text-align: right;
+      flex-shrink: 0;
     }
 
     .panel-section p {
@@ -97,6 +181,47 @@
       overflow: hidden;
     }
 
+    .corner-controls {
+      position: absolute;
+      top: 16px;
+      left: 16px;
+      z-index: 1000;
+      background-color: rgba(26, 26, 26, 0.95);
+      border: 1px solid #444444;
+      border-radius: 4px;
+      padding: 8px;
+      min-width: 180px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .bottom-right-stats {
+      position: absolute;
+      bottom: 16px;
+      right: 16px;
+      z-index: 1000;
+    }
+
+    .statistics-window {
+      background-color: rgba(26, 26, 26, 0.95);
+      border: 1px solid #444444;
+      border-radius: 4px;
+      padding: 0;
+      min-width: 220px;
+      max-width: 260px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    .statistics-window-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: #FFC627;
+      margin: 0;
+      padding: 8px 10px 6px 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      border-bottom: 1px solid #444444;
+    }
+
     .loading {
       display: flex;
       align-items: center;
@@ -107,71 +232,61 @@
       color: #FFC627;
     }
 
-    .right-panel {
-      width: 320px;
-      background-color: #1a1a1a;
-      border-left: 1px solid #333333;
-      padding: 16px;
-      overflow-y: auto;
-    }
-
     .control-panel {
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 6px;
     }
 
-    .control-panel h2 {
-      font-size: 14px;
-      font-weight: 600;
-      color: #FFC627;
-      margin-bottom: 8px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+    .control-dropdown {
+      position: relative;
     }
 
-    .control-group {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .control-group label {
-      font-size: 13px;
-      font-weight: 500;
+    .control-dropdown::after {
+      content: '▼';
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      pointer-events: none;
       color: #cccccc;
+      font-size: 10px;
     }
 
-    .control-group select {
-      padding: 8px 12px;
-      font-size: 14px;
+    .control-dropdown select {
+      width: 100%;
+      padding: 6px 28px 6px 10px;
+      font-size: 12px;
       border: 1px solid #444444;
       border-radius: 4px;
       background-color: #2a2a2a;
       color: #f5f5f5;
       cursor: pointer;
       transition: border-color 0.2s;
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
     }
 
-    .control-group select:hover:not(:disabled) {
+    .control-dropdown select:hover:not(:disabled) {
       border-color: #8C1D40;
     }
 
-    .control-group select:focus {
+    .control-dropdown select:focus {
       outline: none;
       border-color: #FFC627;
       box-shadow: 0 0 0 2px rgba(255, 198, 39, 0.2);
     }
 
-    .control-group select:disabled {
+    .control-dropdown select:disabled {
       background-color: #1a1a1a;
       cursor: not-allowed;
       opacity: 0.6;
     }
 
     .load-button {
-      padding: 12px 24px;
-      font-size: 14px;
+      padding: 8px 16px;
+      font-size: 12px;
       font-weight: 600;
       color: #0a0a0a;
       background-color: #FFC627;
@@ -179,7 +294,7 @@
       border-radius: 4px;
       cursor: pointer;
       transition: background-color 0.2s;
-      margin-top: 8px;
+      margin-top: 4px;
     }
 
     .load-button:hover:not(:disabled) {
@@ -211,7 +326,7 @@
     .hover-tooltip {
       position: absolute;
       top: 16px;
-      left: 16px;
+      right: 16px;
       background-color: rgba(26, 26, 26, 0.95);
       color: #FFC627;
       padding: 8px 12px;
@@ -224,36 +339,13 @@
       box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
     }
 
-    .point-details-content {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-
-    .detail-item {
-      font-size: 14px;
-      color: #cccccc;
-      line-height: 1.6;
-    }
-
-    .detail-item strong {
-      color: #FFC627;
-      font-weight: 600;
-    }
-
-    .detail-item span {
-      color: #f5f5f5;
-    }
   </style>
 </head>
 <body>
   <div id="root"></div>
 
-  <!-- React and ReactDOM from CDN -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  
-  <!-- Three.js from CDN -->
   <script src="https://cdn.jsdelivr.net/npm/three@0.158.0/build/three.min.js"></script>
   <script type="importmap">
     {
@@ -267,11 +359,8 @@
     import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
     window.OrbitControls = OrbitControls;
     window.orbitControlsReady = true;
-    // Trigger custom event when ready
     window.dispatchEvent(new Event('orbitControlsReady'));
   </script>
-
-  <!-- Application code -->
   <script src="app.js" defer></script>
 </body>
 </html>
