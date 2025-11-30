@@ -680,70 +680,76 @@ function Statistics({ availableCombinations, loadedSelection }) {
   return e('div', { className: 'statistics-window' },
     e('h2', { className: 'statistics-window-title' }, 'Statistics'),
     e('div', { className: 'statistics-box' },
-      e('div', { className: 'stat-row' },
-        e('span', { className: 'stat-label' }, 'Number of Clusters:'),
-        e('span', { className: 'stat-value' }, stats.num_clusters || 'N/A')
-      ),
-      e('div', { className: 'stat-row' },
-        e('span', { className: 'stat-label' }, 'Noise Fraction:'),
-        e('span', { className: 'stat-value' }, formatValue(stats.noise_frac || 0))
-      ),
       e('div', { className: 'stat-section' },
-        e('div', { className: 'stat-section-title' }, 'Adjusted Rand Index (ARI)'),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Full:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.ari_full))
+        e('div', { className: 'stat-section-title' }, 'External Metrics'),
+        e('div', { className: 'stat-subsection' },
+          e('div', { className: 'stat-subsection-title' }, 'ARI (Adjusted Rand Index)'),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Full Label:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.ari_full))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Sublabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.ari_sub))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Superlabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.ari_super))
+          )
         ),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Sub:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.ari_sub))
+        e('div', { className: 'stat-subsection' },
+          e('div', { className: 'stat-subsection-title' }, 'NMI (Normalized Mutual Information)'),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Full Label:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.nmi_full))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Sublabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.nmi_sub))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Superlabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.nmi_super))
+          )
         ),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Super:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.ari_super))
+        e('div', { className: 'stat-subsection' },
+          e('div', { className: 'stat-subsection-title' }, 'Purity'),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Full Label:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.purity_full))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Sublabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.purity_sub))
+          ),
+          e('div', { className: 'stat-row' },
+            e('span', { className: 'stat-label' }, 'Superlabel:'),
+            e('span', { className: 'stat-value' }, formatValue(stats.purity_super))
+          )
         )
       ),
       e('div', { className: 'stat-section' },
-        e('div', { className: 'stat-section-title' }, 'Normalized Mutual Information (NMI)'),
+        e('div', { className: 'stat-section-title' }, 'Internal Metrics'),
         e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Full:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.nmi_full))
+          e('span', { className: 'stat-label' }, 'Number of Clusters:'),
+          e('span', { className: 'stat-value' }, stats.num_clusters || 'N/A')
         ),
         e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Sub:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.nmi_sub))
+          e('span', { className: 'stat-label' }, 'Noise Fraction:'),
+          e('span', { className: 'stat-value' }, formatValue(stats.noise_frac || 0))
         ),
         e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Super:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.nmi_super))
+          e('span', { className: 'stat-label' }, 'Silhouette Score:'),
+          e('span', { className: 'stat-value' }, formatValue(stats.sil))
+        ),
+        e('div', { className: 'stat-row' },
+          e('span', { className: 'stat-label' }, 'Calinski-Harabasz:'),
+          e('span', { className: 'stat-value' }, formatValue(stats.ch))
+        ),
+        e('div', { className: 'stat-row' },
+          e('span', { className: 'stat-label' }, 'Davies-Bouldin:'),
+          e('span', { className: 'stat-value' }, formatValue(stats.db))
         )
-      ),
-      e('div', { className: 'stat-section' },
-        e('div', { className: 'stat-section-title' }, 'Purity'),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Full:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.purity_full))
-        ),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Sub:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.purity_sub))
-        ),
-        e('div', { className: 'stat-row' },
-          e('span', { className: 'stat-label' }, 'Super:'),
-          e('span', { className: 'stat-value' }, formatValue(stats.purity_super))
-        )
-      ),
-      e('div', { className: 'stat-row' },
-        e('span', { className: 'stat-label' }, 'Silhouette Score:'),
-        e('span', { className: 'stat-value' }, formatValue(stats.sil))
-      ),
-      e('div', { className: 'stat-row' },
-        e('span', { className: 'stat-label' }, 'Calinski-Harabasz:'),
-        e('span', { className: 'stat-value' }, formatValue(stats.ch))
-      ),
-      e('div', { className: 'stat-row' },
-        e('span', { className: 'stat-label' }, 'Davies-Bouldin:'),
-        e('span', { className: 'stat-value' }, formatValue(stats.db))
       )
     )
   );
