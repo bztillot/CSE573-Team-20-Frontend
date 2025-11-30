@@ -6,10 +6,13 @@ Embedding Visualizer - A lightweight React application for visualizing 3D embedd
 
 - **3D Visualization**: Interactive 3D scatter plot using Three.js
 - **Cluster-based Coloring**: Points are colored by their cluster assignment using ASU colors
-- **Parameter Selection**: Choose visualization technique, embedding algorithm, and clustering algorithm
-- **Hover Interaction**: Hover over points to see their IDs
-- **Click to Select**: Click points to view detailed information in the left panel
-- **Rotate & Zoom**: Full camera controls for exploring the data
+- **Parameter Selection**: Choose visualization technique, embedding algorithm, clustering algorithm, and hyperparameters
+- **API Integration**: Data is loaded dynamically from a remote API
+- **Point Details**: Click points to view ID, Subject, and Body information fetched from the API
+- **Statistics Display**: View clustering performance metrics in the bottom-right panel
+- **Search Functionality**: Search through points (search bar in left panel)
+- **Hover Interaction**: Hover over points to see their IDs and cluster assignments
+- **Full Camera Controls**: Rotate, zoom, and pan the 3D visualization
 - **Dark Mode**: Beautiful dark theme using Arizona State University colors (Maroon #8C1D40 and Gold #FFC627)
 
 ## Getting Started
@@ -25,63 +28,65 @@ docker-compose up --build
 
 ### Manual Setup
 
-1. Generate data files (optional - sample files are included):
-```bash
-npm run generate-data
-```
-
-2. Serve the files using any HTTP server. For example:
+1. Serve the files using any HTTP server. For example:
 ```bash
 # Using Python
 python -m http.server 8000
 
 # Using Node.js http-server
 npx http-server -p 8000
-
-# Or simply open index.html in a modern browser (may have CORS issues with fetch)
 ```
 
-3. Open your browser to `http://localhost:8000` (or the port you chose)
+2. Open your browser to `http://localhost:8000` (or the port you chose)
+
+**Note**: The application requires network access to fetch data from the API at `http://157.245.180.194`. CORS must be enabled on the API server for the application to work.
 
 ## Usage
 
-1. Select a **Visualization Technique** (PCA or t-SNE)
-2. Select an **Embedding Algorithm** (Word2Vec, GloVe, FastText, BERT, or ELMo)
-3. Select a **Clustering Algorithm** (K-Means, DBSCAN, Hierarchical, or GMM)
-4. Click **Load** to load and visualize the data from the corresponding JSON file
-5. Interact with the 3D visualization:
-   - **Rotate**: Click and drag
+1. Select a **Visualization Technique** (t-SNE or PaCMAP)
+2. Select an **Embedding Algorithm** (3Large, 3Small, BGE-M3, LSA, or MiniLM)
+3. Select a **Clustering Algorithm** (K-Means, DBSCAN, HDBSCAN, Hierarchical, or Spectral)
+4. Select a **Hyperparameter** (options depend on the selected clustering algorithm)
+5. Click **Load** to fetch and visualize the data from the API
+6. Interact with the 3D visualization:
+   - **Rotate**: Left-click and drag
    - **Zoom**: Scroll wheel
    - **Pan**: Right-click and drag (or middle mouse button)
-   - **Hover**: Move mouse over points to see IDs
-   - **Click**: Click on points to view details in the left panel
+   - **Hover**: Move mouse over points to see IDs and cluster assignments
+   - **Click**: Click on points to view ID, Subject, and Body in the left panel
+7. View **Statistics**: Clustering performance metrics appear in the bottom-right corner after loading data
 
-## Data Format
+## Data Source
 
-Data files are stored in `public/data/` and follow the naming convention:
-`{visualization}_{embedding}_{clustering}.json`
-
-Each JSON file contains data in the format:
-```json
-{
-  "id0": {"point": [x, y, z], "cluster": 0},
-  "id1": {"point": [x, y, z], "cluster": 1},
-  ...
-}
+Data is fetched from a remote API endpoint:
+```
+http://157.245.180.194/api/vis/{visualization}/{embedding}/{clustering}/{hyperparameter}
 ```
 
-Points are automatically colored based on their cluster assignment using ASU colors.
+The API returns an array of point objects with the following structure:
+```json
+[
+  {"id": "id0", "point": [x, y, z], "cluster": 0},
+  {"id": "id1", "point": [x, y, z], "cluster": 1},
+  ...
+]
+```
+
+Additional point details (Subject and Body) are fetched from:
+```
+http://157.245.180.194/api/docs/{point-id}
+```
+
+Points are automatically colored based on their cluster assignment using ASU colors. Noise points (cluster < 0) are displayed in gray.
 
 ## Project Structure
 
 ```
 ├── public/
-│   └── data/                      # JSON data files
-├── scripts/
-│   └── generate-data.js           # Script to generate sample data
+│   └── data/
+│       └── combination_stats.json # Statistics for available combinations
 ├── index.html                     # Main HTML file with inline styles
 ├── app.js                         # Application JavaScript (React components)
-├── package.json                   # Package configuration (only for data generation script)
 ├── Dockerfile                     # Docker image definition (nginx)
 └── docker-compose.yml             # Docker Compose configuration
 ```

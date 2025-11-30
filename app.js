@@ -1,17 +1,49 @@
 const { useState, useEffect, useRef, createElement: e } = React;
 
-function ControlPanel({ onLoad, loading, availableCombinations, onSelectionChange }) {
+function ControlPanel({ onLoad, loading, availableCombinations }) {
   const [visualizationTechnique, setVisualizationTechnique] = useState('');
   const [embeddingAlgorithm, setEmbeddingAlgorithm] = useState('');
   const [clusteringAlgorithm, setClusteringAlgorithm] = useState('');
   const [hyperparameter, setHyperparameter] = useState('');
 
   const getAvailableOptions = () => {
+    const clusterLabels = {
+      'kmeans': 'K-Means',
+      'dbscan': 'DBSCAN',
+      'hdbscan': 'HDBSCAN',
+      'aggl': 'Hierarchical',
+      'spec': 'Spectral'
+    };
+
+    const embeddingLabels = {
+      '3large': '3Large',
+      '3small': '3Small',
+      'bge-m3': 'BGE-M3',
+      'lsa': 'LSA',
+      'minilm': 'MiniLM'
+    };
+
+    const visualizationLabels = {
+      'tsne': 't-SNE',
+      'pacmap': 'PaCMAP'
+    };
+
     if (!availableCombinations || Object.keys(availableCombinations).length === 0) {
-      return { visualizations: [], embeddings: [], clusterings: [], hyperparameters: [] };
+      return {
+        visualizations: [
+          { value: 'tsne', label: 't-SNE' },
+          { value: 'pacmap', label: 'PaCMAP' }
+        ],
+        embeddings: [],
+        clusterings: [],
+        hyperparamsByCluster: {}
+      };
     }
 
     const visualizations = new Set();
+    visualizations.add('tsne');
+    visualizations.add('pacmap');
+    
     const embeddings = new Set();
     const clusterings = new Set();
     const hyperparamsByCluster = {};
@@ -23,7 +55,6 @@ function ControlPanel({ onLoad, loading, availableCombinations, onSelectionChang
         const embedding = parts[1];
         const hyperparam = parts.slice(2).join('_');
         
-        visualizations.add('tsne');
         embeddings.add(embedding);
         clusterings.add(cluster);
         
@@ -34,22 +65,10 @@ function ControlPanel({ onLoad, loading, availableCombinations, onSelectionChang
       }
     });
 
-    const clusterLabels = {
-      'kmeans': 'K-Means',
-      'dbscan': 'DBSCAN',
-      'hdbscan': 'HDBSCAN',
-      'aggl': 'Hierarchical',
-      'spec': 'Spectral'
-    };
-
-    const embeddingLabels = {
-      'minilm': 'MiniLM'
-    };
-
     return {
-      visualizations: Array.from(visualizations).map(v => ({ value: v, label: v.toUpperCase() })),
-      embeddings: Array.from(embeddings).map(e => ({ value: e, label: embeddingLabels[e] || e })),
-      clusterings: Array.from(clusterings).map(c => ({ value: c, label: clusterLabels[c] || c })),
+      visualizations: Array.from(visualizations).sort().map(v => ({ value: v, label: visualizationLabels[v] || v.toUpperCase() })),
+      embeddings: Array.from(embeddings).sort().map(e => ({ value: e, label: embeddingLabels[e] || e })),
+      clusterings: Array.from(clusterings).sort().map(c => ({ value: c, label: clusterLabels[c] || c })),
       hyperparamsByCluster: Object.fromEntries(
         Object.entries(hyperparamsByCluster).map(([k, v]) => [k, Array.from(v).sort()])
       )
@@ -80,17 +99,6 @@ function ControlPanel({ onLoad, loading, availableCombinations, onSelectionChang
       setHyperparameter('');
     }
   }, [clusteringAlgorithm, hyperparameter, availableHyperparams]);
-
-  useEffect(() => {
-    if (onSelectionChange) {
-      onSelectionChange({
-        visualizationTechnique,
-        embeddingAlgorithm,
-        clusteringAlgorithm,
-        hyperparameter
-      });
-    }
-  }, [visualizationTechnique, embeddingAlgorithm, clusteringAlgorithm, hyperparameter, onSelectionChange]);
 
   const handleLoad = () => {
     if (!visualizationTechnique || !embeddingAlgorithm || !clusteringAlgorithm || !hyperparameter) {
@@ -166,7 +174,6 @@ function ControlPanel({ onLoad, loading, availableCombinations, onSelectionChang
   );
 }
 
-// Visualization3D Component
 function Visualization3D({ data, onPointClick, selectedPoint }) {
   const mountRef = useRef(null);
   const [hoveredId, setHoveredId] = useState(null);
@@ -217,14 +224,12 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     controls.enableDamping = true;
     controls.dampingFactor = 0.05;
     controls.autoRotate = false;
-    controls.enablePan = false;
-    
-    if (controls.addEventListener) {
-      renderer.domElement.addEventListener('dblclick', (e) => {
-        e.preventDefault();
-        e.stopPropagation();
-      });
-    }
+    controls.enablePan = true;
+    controls.mouseButtons = {
+      LEFT: THREE.MOUSE.ROTATE,
+      MIDDLE: THREE.MOUSE.DOLLY,
+      RIGHT: THREE.MOUSE.PAN
+    };
 
     const raycaster = new THREE.Raycaster();
     raycaster.params.Points.threshold = 0.1;
@@ -408,9 +413,11 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     scene.add(selectedSphere);
 
     const handleMouseDown = (event) => {
-      mouseDownPosition.x = event.clientX;
-      mouseDownPosition.y = event.clientY;
-      isDragging = false;
+      if (event.button === 0) {
+        mouseDownPosition.x = event.clientX;
+        mouseDownPosition.y = event.clientY;
+        isDragging = false;
+      }
     };
 
     const handleMouseMove = (event) => {
@@ -466,38 +473,24 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
     };
 
     const handleMouseUp = (event) => {
+      if (event.button !== 0) {
+        return;
+      }
       if (!isDragging && onPointClickRef.current) {
         const rect = renderer.domElement.getBoundingClientRect();
-        
         const x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
         const y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
         
-        if (x < -1 || x > 1 || y < -1 || y > 1) {
-          return;
-        }
-        
         mouse.x = x;
         mouse.y = y;
-
         controls.update();
         camera.updateMatrixWorld();
-        
         raycaster.setFromCamera(mouse, camera);
         const intersects = raycaster.intersectObject(points);
         
         if (intersects.length > 0) {
           const intersect = intersects[0];
-          
-          event.stopPropagation();
           event.preventDefault();
-          event.stopImmediatePropagation();
-          
-          const controlsEnabled = controls.enabled;
-          controls.enabled = false;
-          
-          const savedPosition = camera.position.clone();
-          const savedTarget = controls.target.clone();
-          const savedZoom = camera.zoom;
           
           const index = intersect.index;
           const storedIds = geometry.userData.ids;
@@ -524,21 +517,6 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
               point: [...point]
             });
           }
-          
-          camera.position.copy(savedPosition);
-          controls.target.copy(savedTarget);
-          camera.zoom = savedZoom;
-          camera.updateProjectionMatrix();
-          controls.enabled = controlsEnabled;
-          controls.update();
-          
-          requestAnimationFrame(() => {
-            camera.position.copy(savedPosition);
-            controls.target.copy(savedTarget);
-            camera.zoom = savedZoom;
-            camera.updateProjectionMatrix();
-            controls.update();
-          });
         }
       }
       
@@ -659,21 +637,18 @@ function Visualization3D({ data, onPointClick, selectedPoint }) {
   );
 }
 
-// Search Component
 function Search({ searchTerm, onSearchChange }) {
   return e('div', { className: 'panel-section' },
     e('h2', null, 'Search'),
-    e('input', {
+      e('input', {
       type: 'text',
       className: 'search-input',
-      placeholder: '',
       value: searchTerm,
       onChange: (e) => onSearchChange(e.target.value)
     })
   );
 }
 
-// Statistics Component
 function Statistics({ availableCombinations, loadedSelection }) {
   if (!availableCombinations || !loadedSelection || 
       !loadedSelection.clusteringAlgorithm || !loadedSelection.embeddingAlgorithm || !loadedSelection.hyperparameter) {
@@ -774,8 +749,8 @@ function Statistics({ availableCombinations, loadedSelection }) {
   );
 }
 
-// Point Details Component
-function PointDetails({ pointData }) {
+function PointDetails({ pointData, apiData, loadingApiData }) {
+
   if (!pointData) {
     return e('div', { className: 'panel-section' },
       e('h2', null, 'Point Info'),
@@ -785,9 +760,8 @@ function PointDetails({ pointData }) {
     );
   }
 
-  const name = pointData.name || pointData.id || 'N/A';
-  const author = pointData.author || 'N/A';
-  const description = pointData.description || pointData.attributes?.description || 'No description available';
+  const subject = apiData?.subject || apiData?.Subject || 'N/A';
+  const body = apiData?.body || apiData?.Body || 'N/A';
 
   return e('div', { className: 'panel-section' },
     e('h2', null, 'Point Info'),
@@ -796,22 +770,34 @@ function PointDetails({ pointData }) {
         e('div', { className: 'point-info-label' }, 'ID:'),
         e('div', { className: 'point-info-value' }, pointData.id)
       ),
-      e('div', { className: 'point-info-item' },
-        e('div', { className: 'point-info-label' }, 'Name:'),
-        e('div', { className: 'point-info-value' }, name)
-      ),
-      e('div', { className: 'point-info-item' },
-        e('div', { className: 'point-info-label' }, 'Author:'),
-        e('div', { className: 'point-info-value' }, author)
-      ),
-      e('div', { className: 'point-info-item', style: { marginTop: '8px' } },
-        e('div', { className: 'point-info-description' }, description)
+      loadingApiData ? e('div', { className: 'point-info-item' },
+        e('div', { 
+          style: { 
+            color: '#888', 
+            fontSize: '13px',
+            fontStyle: 'italic'
+          } 
+        }, 'Loading...')
+      ) : e('div', null,
+        e('div', { className: 'point-info-item' },
+          e('div', { className: 'point-info-label' }, 'Subject:'),
+          e('div', { className: 'point-info-value' }, subject)
+        ),
+        e('div', { className: 'point-info-item' },
+          e('div', { className: 'point-info-label' }, 'Body:'),
+          e('div', { 
+            className: 'point-info-value',
+            style: {
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-word'
+            }
+          }, body)
+        )
       )
     )
   );
 }
 
-// Main App Component
 function App() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -819,6 +805,8 @@ function App() {
   const [availableCombinations, setAvailableCombinations] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [loadedSelection, setLoadedSelection] = useState(null);
+  const [pointApiData, setPointApiData] = useState(null);
+  const [loadingApiData, setLoadingApiData] = useState(false);
 
   useEffect(() => {
     const loadCombinations = async () => {
@@ -839,7 +827,8 @@ function App() {
     setLoading(true);
     
     try {
-      const apiUrl = `http://157.245.180.194/api/vis/${newParams.visualizationTechnique}/${newParams.embeddingAlgorithm}/${newParams.clusteringAlgorithm}/${newParams.hyperparameter}`;
+      const visTechnique = newParams.visualizationTechnique === 'pacmap' ? 'pmap' : newParams.visualizationTechnique;
+      const apiUrl = `http://157.245.180.194/api/vis/${visTechnique}/${newParams.embeddingAlgorithm}/${newParams.clusteringAlgorithm}/${newParams.hyperparameter}`;
       const response = await fetch(apiUrl);
       
       if (!response.ok) {
@@ -858,9 +847,11 @@ function App() {
         }
       }
       
-      setData(processedData);
-      setSelectedPoint(null);
-      setLoadedSelection(newParams);
+              setData(processedData);
+              setSelectedPoint(null);
+              setPointApiData(null);
+              setLoadingApiData(false);
+              setLoadedSelection(newParams);
     } catch (error) {
       console.error('Error loading data:', error);
       alert(`Failed to load data from API. Error: ${error.message}`);
@@ -869,14 +860,36 @@ function App() {
     }
   };
 
-  const handlePointClick = (pointData) => {
+  const handlePointClick = async (pointData) => {
     setSelectedPoint(pointData);
+    setPointApiData(null);
+    setLoadingApiData(true);
+    
+    try {
+      const apiUrl = `http://157.245.180.194/api/docs/${pointData.id}`;
+      const response = await fetch(apiUrl);
+      
+      if (response.ok) {
+        const apiData = await response.json();
+        setPointApiData(apiData);
+      } else {
+        console.warn(`Failed to fetch API data for point ${pointData.id}: ${response.status}`);
+        setPointApiData(null);
+      }
+    } catch (error) {
+      console.error('Error fetching point API data:', error);
+      setPointApiData(null);
+    } finally {
+      setLoadingApiData(false);
+    }
   };
 
   const handleClickOutside = (event) => {
     const visualizationContainer = event.target.closest('.visualization-container');
     if (!visualizationContainer && selectedPoint) {
       setSelectedPoint(null);
+      setPointApiData(null);
+      setLoadingApiData(false);
     }
   };
 
@@ -884,15 +897,18 @@ function App() {
     e('div', { className: 'app-content' },
       e('div', { className: 'left-panel' },
         e(Search, { searchTerm, onSearchChange: setSearchTerm }),
-        e(PointDetails, { pointData: selectedPoint })
+        e(PointDetails, { 
+          pointData: selectedPoint,
+          apiData: pointApiData,
+          loadingApiData: loadingApiData
+        })
       ),
       e('div', { className: 'center-panel' },
         e('div', { className: 'corner-controls' },
           e(ControlPanel, { 
             onLoad: handleLoad, 
             loading, 
-            availableCombinations,
-            onSelectionChange: () => {}
+            availableCombinations
           })
         ),
         e('div', { className: 'bottom-right-stats' },
